@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Normalizador de Números WhatsApp</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --surface: #111318;
+    --surface2: #161920;
+    --border: #1e2230;
+    --border-bright: #2e3450;
+    --green: #00e676;
+    --green-glow: rgba(0, 230, 118, 0.15);
+    --amber: #ffab40;
+    --red: #ff5252;
+    --blue: #40c4ff;
+    --text: #e8ecf0;
+    --text-muted: #5a6070;
+    --text-dim: #8a94a8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,230,118,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,230,118,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* Header */
+  header {
+    margin-bottom: 40px;
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+  }
+
+  .logo-icon {
+    width: 48px;
+    height: 48px;
+    background: var(--green-glow);
+    border: 1px solid var(--green);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+    margin-top: 4px;
+    box-shadow: 0 0 20px var(--green-glow);
+  }
+
+  .header-text h1 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: clamp(22px, 4vw, 32px);
+    line-height: 1.1;
+    letter-spacing: -0.5px;
+  }
+  .header-text h1 span { color: var(--green); }
+  .header-text p {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.6;
+    max-width: 580px;
+  }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 10px;
+  }
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  .status-dot.active { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status-dot.warn   { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+
+  /* Mode tabs */
+  .mode-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 5px;
+    width: fit-content;
+  }
+  .mode-tab {
+    padding: 8px 18px;
+    border-radius: 7px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    cursor: pointer;
+    transition: all 0.18s;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+  }
+  .mode-tab:hover { color: var(--text-dim); }
+  .mode-tab.active {
+    background: var(--border-bright);
+    color: var(--green);
+  }
+
+  /* Input panels */
+  .input-panel { display: none; }
+  .input-panel.active { display: block; }
+
+  /* File panel */
+  .upload-zone {
+    border: 1.5px dashed var(--border-bright);
+    border-radius: 12px;
+    padding: 44px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .upload-zone::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 50%, var(--green-glow) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .upload-zone:hover,
+  .upload-zone.dragover {
+    border-color: var(--green);
+    border-style: solid;
+  }
+  .upload-zone:hover::after,
+  .upload-zone.dragover::after { opacity: 1; }
+
+  .upload-icon {
+    font-size: 34px;
+    margin-bottom: 10px;
+    display: block;
+    filter: grayscale(1) opacity(0.45);
+    transition: filter 0.2s;
+  }
+  .upload-zone:hover .upload-icon { filter: none; }
+  .upload-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--text);
+    margin-bottom: 5px;
+  }
+  .upload-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.7;
+  }
+  .upload-sub strong { color: var(--green); }
+  #fileInput { display: none; }
+
+  /* Text panels */
+  .text-panel-inner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .text-panel-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .text-panel-label {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .text-panel-label span { color: var(--green); }
+  .btn-clear-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text-muted);
+    padding: 3px 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-clear-text:hover { border-color: var(--red); color: var(--red); }
+
+  textarea {
+    width: 100%;
+    min-height: 180px;
+    background: var(--surface2);
+    border: none;
+    padding: 16px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    resize: vertical;
+    outline: none;
+    display: block;
+  }
+  textarea::placeholder { color: var(--text-muted); opacity: 0.6; }
+
+  .text-hint {
+    padding: 10px 16px;
+    font-size: 10px;
+    color: var(--text-muted);
+    line-height: 1.6;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .text-hint span { display: flex; align-items: center; gap: 5px; }
+  .hint-chip {
+    display: inline-block;
+    background: var(--border);
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  /* Col select */
+  .col-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .col-select-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    flex: 1;
+    min-width: 200px;
+  }
+  .col-select-wrap label {
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .col-select-wrap select {
+    background: transparent;
+    border: none;
+    color: var(--green);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    flex: 1;
+    cursor: pointer;
+    outline: none;
+  }
+  .col-select-wrap select option { background: #111318; color: var(--text); }
+
+  /* Action bar */
+  .action-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .btn {
+    padding: 10px 22px;
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1.5px solid transparent;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+  .btn-primary { background: var(--green); color: #000; border-color: var(--green); }
+  .btn-primary:hover { background: #00ff90; box-shadow: 0 0 20px var(--green-glow); }
+  .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-secondary { background: transparent; color: var(--text-dim); border-color: var(--border-bright); }
+  .btn-secondary:hover { border-color: var(--green); color: var(--green); }
+  .btn-secondary:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-copy { background: transparent; color: var(--text-dim); border-color: var(--border-bright); }
+  .btn-copy:hover { border-color: var(--blue); color: var(--blue); }
+  .btn-copy:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* Stats */
+  .stats-bar {
+    display: none;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .stats-bar.visible { display: grid; }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .stat-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .stat-value {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+  }
+  .stat-value.green { color: var(--green); }
+  .stat-value.amber { color: var(--amber); }
+  .stat-value.red   { color: var(--red); }
+
+  /* Table */
+  .table-wrap {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .table-wrap.visible { display: block; }
+  .table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .table-header-title { font-size: 12px; color: var(--text-dim); }
+  .table-header-title span { color: var(--green); font-weight: 600; }
+  .search-input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    width: 210px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-input:focus { border-color: var(--green); }
+  .search-input::placeholder { color: var(--text-muted); }
+  .table-scroll { overflow-x: auto; max-height: 460px; overflow-y: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead { position: sticky; top: 0; z-index: 10; }
+  th {
+    background: #0d0f14;
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  th.highlight { color: var(--green); }
+  td {
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .cell-original  { color: var(--text-muted); font-size: 11px; }
+  .cell-normalized { color: var(--green); font-weight: 600; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .badge-ok   { background: rgba(0,230,118,0.12); color: var(--green); }
+  .badge-skip { background: rgba(90,96,112,0.2);  color: var(--text-muted); }
+  .badge-err  { background: rgba(255,82,82,0.12);  color: var(--red); }
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 18px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-muted);
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .pagination-btns { display: flex; gap: 6px; }
+  .page-btn {
+    padding: 4px 10px;
+    border-radius: 5px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .page-btn:hover { border-color: var(--green); color: var(--green); }
+  .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border-bright);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 12px;
+    color: var(--text);
+    max-width: 280px;
+    z-index: 100;
+    display: none;
+    transform: translateY(10px);
+    opacity: 0;
+    transition: all 0.3s;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  .toast.show { display: block; transform: translateY(0); opacity: 1; }
+  .toast.success { border-left: 3px solid var(--green); }
+  .toast.error   { border-left: 3px solid var(--red); }
+  .toast.info    { border-left: 3px solid var(--amber); }
+
+  @keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-in { animation: fadeSlideIn 0.35s ease forwards; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo-icon">📱</div>
+    <div class="header-text">
+      <h1>WhatsApp Number <span>Normalizer</span></h1>
+      <p>Normalize números de telefone brasileiros para o padrão WhatsApp (+55DDXXXXXXXXX). Carregue uma planilha, cole números separados por vírgula ou cole uma tabela do Google Sheets / Excel.</p>
+      <div class="status-bar">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">aguardando entrada...</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mode selector -->
+  <div class="mode-tabs">
+    <button class="mode-tab active" data-mode="file">📂 Arquivo</button>
+    <button class="mode-tab" data-mode="comma">✏️ Vírgula / Lista</button>
+    <button class="mode-tab" data-mode="table">📋 Colar Tabela</button>
+  </div>
+
+  <!-- Panel: File -->
+  <div class="input-panel active" id="panel-file">
+    <div class="upload-zone" id="uploadZone">
+      <span class="upload-icon">📂</span>
+      <div class="upload-title">Arraste sua planilha aqui</div>
+      <div class="upload-sub">
+        Suporta <strong>.csv</strong> e <strong>.xlsx</strong> exportados do Google Sheets<br>
+        ou clique para selecionar o arquivo
+      </div>
+    </div>
+    <input type="file" id="fileInput" accept=".csv,.xlsx">
+    <div class="col-row">
+      <div class="col-select-wrap">
+        <label>COLUNA DE TELEFONE →</label>
+        <select id="colSelect">
+          <option value="">— carregue um arquivo —</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel: Comma list -->
+  <div class="input-panel" id="panel-comma">
+    <div class="text-panel-inner">
+      <div class="text-panel-toolbar">
+        <div class="text-panel-label">Digite ou cole números — <span>um por linha ou separados por vírgula</span></div>
+        <button class="btn-clear-text" id="btnClearComma">✕ limpar</button>
+      </div>
+      <textarea id="commaInput" placeholder="(11) 99999-0001
+21 98888-0002, 11987650003
+5521987654321
++55 11 91234-5678"></textarea>
+      <div class="text-hint">
+        <span><span class="hint-chip">,</span> vírgula</span>
+        <span><span class="hint-chip">↵</span> nova linha</span>
+        <span><span class="hint-chip">;</span> ponto-e-vírgula</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel: Paste table -->
+  <div class="input-panel" id="panel-table">
+    <div class="text-panel-inner">
+      <div class="text-panel-toolbar">
+        <div class="text-panel-label">Cole uma tabela do <span>Google Sheets</span> ou <span>Excel</span></div>
+        <button class="btn-clear-text" id="btnClearTable">✕ limpar</button>
+      </div>
+      <textarea id="tableInput" placeholder="Nome	Telefone	Empresa
+João	(11) 99999-0001	Acme
+Maria	21 98888-0002	Beta
+Pedro	+5511987654321	Gamma
+
+→ Selecione as células no Sheets/Excel, Ctrl+C e cole aqui com Ctrl+V"></textarea>
+      <div class="text-hint">
+        <span>Copie as células com <span class="hint-chip">Ctrl+C</span> e cole com <span class="hint-chip">Ctrl+V</span> — colunas separadas por tab são detectadas automaticamente</span>
+      </div>
+    </div>
+    <div class="col-row">
+      <div class="col-select-wrap">
+        <label>COLUNA DE TELEFONE →</label>
+        <select id="tableColSelect">
+          <option value="">— cole a tabela acima —</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="action-bar">
+    <button class="btn btn-primary" id="btnProcess">⚡ Normalizar</button>
+    <button class="btn btn-secondary" id="btnDownload" disabled>⬇ Baixar CSV</button>
+    <button class="btn btn-copy" id="btnCopyList" disabled>⎘ Copiar Números</button>
+    <button class="btn btn-secondary" id="btnReset">✕ Limpar</button>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-card">
+      <div class="stat-label">Total</div>
+      <div class="stat-value" id="statTotal">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Normalizados</div>
+      <div class="stat-value green" id="statOk">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Ignorados</div>
+      <div class="stat-value amber" id="statSkip">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Vazios</div>
+      <div class="stat-value red" id="statEmpty">—</div>
+    </div>
+  </div>
+
+  <!-- Result table -->
+  <div class="table-wrap" id="tableWrap">
+    <div class="table-header">
+      <div class="table-header-title">Resultado — <span id="previewCount">0</span> linhas</div>
+      <input type="text" class="search-input" id="searchInput" placeholder="🔍 Filtrar...">
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <span id="pageInfo">Página 1 de 1</span>
+      <div class="pagination-btns">
+        <button class="page-btn" id="btnPrev" disabled>← Anterior</button>
+        <button class="page-btn" id="btnNext" disabled>Próxima →</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let mode = 'file';
+let rawHeaders = [];
+let rawRows = [];
+let processedRows = [];
+let filteredRows = [];
+let currentPage = 1;
+const PAGE_SIZE = 50;
+
+// ─── DOM refs ─────────────────────────────────────────────────────────────────
+const uploadZone   = document.getElementById('uploadZone');
+const fileInput    = document.getElementById('fileInput');
+const colSelect    = document.getElementById('colSelect');
+const tableColSel  = document.getElementById('tableColSelect');
+const commaInput   = document.getElementById('commaInput');
+const tableInput   = document.getElementById('tableInput');
+const btnProcess   = document.getElementById('btnProcess');
+const btnDownload  = document.getElementById('btnDownload');
+const btnCopyList  = document.getElementById('btnCopyList');
+const btnReset     = document.getElementById('btnReset');
+const statsBar     = document.getElementById('statsBar');
+const tableWrap    = document.getElementById('tableWrap');
+const tableHead    = document.getElementById('tableHead');
+const tableBody    = document.getElementById('tableBody');
+const searchInput  = document.getElementById('searchInput');
+const pageInfo     = document.getElementById('pageInfo');
+const btnPrev      = document.getElementById('btnPrev');
+const btnNext      = document.getElementById('btnNext');
+const previewCount = document.getElementById('previewCount');
+const statusDot    = document.getElementById('statusDot');
+const statusText   = document.getElementById('statusText');
+const toast        = document.getElementById('toast');
+
+// ─── Mode tabs ────────────────────────────────────────────────────────────────
+document.querySelectorAll('.mode-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    mode = btn.dataset.mode;
+    document.querySelectorAll('.mode-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.input-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + mode).classList.add('active');
+    resetResults();
+  });
+});
+
+// ─── Normalization (mirrors AppScript exactly) ────────────────────────────────
+function normalizeBRNumber(input) {
+  let d = String(input).replace(/\D/g, '');
+  if (d.length <= 4) return null;
+  if (d.startsWith('00')) d = d.slice(2);
+  if (!d.startsWith('55') && d.length >= 10 && d[0] === '0') d = d.slice(1);
+  if (d.startsWith('55') && d.length >= 13 && d[2] === '0') d = '55' + d.slice(3);
+
+  if (!d.startsWith('55')) {
+    if (d.length === 8 || d.length === 9)       d = '5521' + d;
+    else if (d.length >= 10 && d.length <= 11)  d = '55' + d;
+    else return null;
+  } else {
+    const nat = d.slice(2);
+    if (nat.length === 8 || nat.length === 9)        d = '5521' + nat;
+    else if (nat.length === 10 || nat.length === 11) d = '55' + nat;
+    else return null;
+  }
+
+  if (d.length !== 12 && d.length !== 13) return null;
+  return '+' + d;
+}
+
+// ─── File upload ──────────────────────────────────────────────────────────────
+uploadZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => { if (e.target.files[0]) parseFile(e.target.files[0]); });
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if (f && /\.(csv|xlsx)$/i.test(f.name)) parseFile(f);
+  else showToast('Formato inválido. Use .csv ou .xlsx', 'error');
+});
+
+function parseFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      if (!data || data.length < 2) { showToast('Planilha vazia ou sem dados.', 'error'); return; }
+      rawHeaders = data[0].map(h => String(h).trim());
+      rawRows = data.slice(1);
+      populateSelect(colSelect, rawHeaders);
+      setStatus('active', `${file.name} — ${rawRows.length} linhas`);
+      showToast(`Carregado: ${rawRows.length} linhas`, 'success');
+    } catch (err) { showToast('Erro: ' + err.message, 'error'); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function populateSelect(sel, headers) {
+  sel.innerHTML = '';
+  headers.forEach((h, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = h || `(coluna ${i + 1})`;
+    if (/phone|tel|celular|whatsapp|fone|n[uú]mero/i.test(h)) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+// ─── Paste-table: auto-detect columns ────────────────────────────────────────
+function detectTableCols() {
+  const raw = tableInput.value.trim();
+  if (!raw) { tableColSel.innerHTML = '<option value="">— cole a tabela acima —</option>'; return; }
+  const firstLine = raw.split('\n')[0];
+  const sep = firstLine.includes('\t') ? '\t' : firstLine.includes(';') ? ';' : ',';
+  const cols = firstLine.split(sep).map(c => c.trim());
+  populateSelect(tableColSel, cols);
+  setStatus('active', `Tabela detectada — ${cols.length} colunas, ${raw.split('\n').length} linhas`);
+}
+
+tableInput.addEventListener('paste', () => setTimeout(detectTableCols, 50));
+tableInput.addEventListener('input', detectTableCols);
+
+document.getElementById('btnClearComma').addEventListener('click', () => { commaInput.value = ''; resetResults(); setStatus('', 'aguardando entrada...'); });
+document.getElementById('btnClearTable').addEventListener('click', () => {
+  tableInput.value = '';
+  tableColSel.innerHTML = '<option value="">— cole a tabela acima —</option>';
+  resetResults();
+  setStatus('', 'aguardando entrada...');
+});
+
+// ─── Processing ───────────────────────────────────────────────────────────────
+btnProcess.addEventListener('click', () => {
+  if (mode === 'file')        processFile();
+  else if (mode === 'comma')  processComma();
+  else                        processPastedTable();
+});
+
+function buildResults(pairs) {
+  let ok = 0, skip = 0, empty = 0;
+  processedRows = pairs.map(p => {
+    const raw = p.raw;
+    let normalized, status;
+    if (raw === '' || raw == null) {
+      normalized = ''; status = 'empty'; empty++;
+    } else {
+      normalized = normalizeBRNumber(raw);
+      if (normalized) { status = 'ok'; ok++; }
+      else { normalized = '—'; status = 'skip'; skip++; }
+    }
+    return { rowData: p.rowData || [raw], raw, normalized, status };
+  });
+
+  document.getElementById('statTotal').textContent = processedRows.length;
+  document.getElementById('statOk').textContent    = ok;
+  document.getElementById('statSkip').textContent  = skip;
+  document.getElementById('statEmpty').textContent = empty;
+  statsBar.classList.add('visible', 'animate-in');
+  renderTable();
+  setStatus('active', `${ok} normalizados de ${processedRows.length}`);
+  showToast(`✓ ${ok} números normalizados`, 'success');
+  btnDownload.disabled = false;
+  btnCopyList.disabled = false;
+  tableWrap.classList.add('visible', 'animate-in');
+}
+
+function processFile() {
+  if (!rawRows.length) { showToast('Carregue um arquivo primeiro.', 'info'); return; }
+  const colIdx = parseInt(colSelect.value, 10);
+  if (isNaN(colIdx)) { showToast('Selecione a coluna.', 'info'); return; }
+  buildResults(rawRows.map(row => ({ raw: row[colIdx], rowData: row })));
+}
+
+function processComma() {
+  const text = commaInput.value.trim();
+  if (!text) { showToast('Cole ou digite números primeiro.', 'info'); return; }
+  rawHeaders = ['Número Original'];
+  const tokens = text
+    .split(/[\n\r]+/)
+    .flatMap(line => line.split(/[,;]+/))
+    .map(t => t.trim())
+    .filter(t => t.length > 0);
+  rawRows = tokens.map(t => [t]);
+  buildResults(tokens.map(t => ({ raw: t, rowData: [t] })));
+}
+
+function processPastedTable() {
+  const text = tableInput.value.trim();
+  if (!text) { showToast('Cole uma tabela primeiro.', 'info'); return; }
+  const colIdx = parseInt(tableColSel.value, 10);
+  if (isNaN(colIdx)) { showToast('Selecione a coluna de telefone.', 'info'); return; }
+
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  const firstLine = lines[0];
+  const sep = firstLine.includes('\t') ? '\t' : firstLine.includes(';') ? ';' : ',';
+  const allRows = lines.map(l => l.split(sep).map(c => c.trim()));
+
+  // Detect header: first row is header if the phone-col cell has no 5+ digit sequence
+  const firstCell = (allRows[0][colIdx] || '').replace(/\D/g, '');
+  const hasHeader = firstCell.length < 5;
+
+  rawHeaders = hasHeader ? allRows[0] : allRows[0].map((_, i) => `Coluna ${i + 1}`);
+  rawRows    = hasHeader ? allRows.slice(1) : allRows;
+  buildResults(rawRows.map(row => ({ raw: row[colIdx] || '', rowData: row })));
+}
+
+// ─── Render result table ──────────────────────────────────────────────────────
+function renderTable() {
+  const query = searchInput.value.toLowerCase();
+  filteredRows = query
+    ? processedRows.filter(r =>
+        String(r.raw).toLowerCase().includes(query) ||
+        String(r.normalized).toLowerCase().includes(query))
+    : [...processedRows];
+
+  previewCount.textContent = filteredRows.length;
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  currentPage = Math.min(currentPage, totalPages);
+
+  // Head
+  tableHead.innerHTML = '';
+  const trh = document.createElement('tr');
+  const mkTh = (label, hi) => {
+    const th = document.createElement('th');
+    th.textContent = label;
+    if (hi) th.className = 'highlight';
+    trh.appendChild(th);
+  };
+  mkTh('#');
+  rawHeaders.forEach(h => mkTh(h || ''));
+  mkTh('Phone_Normalized', true);
+  mkTh('Status', true);
+  tableHead.appendChild(trh);
+
+  // Body
+  tableBody.innerHTML = '';
+  const start = (currentPage - 1) * PAGE_SIZE;
+  filteredRows.slice(start, start + PAGE_SIZE).forEach((item, idx) => {
+    const row = document.createElement('tr');
+    const mkTd = (val, cls) => {
+      const td = document.createElement('td');
+      td.textContent = val;
+      if (cls) td.className = cls;
+      return td;
+    };
+    row.appendChild(mkTd(start + idx + 1));
+    item.rowData.forEach(cell => row.appendChild(mkTd(cell, 'cell-original')));
+    row.appendChild(mkTd(item.normalized === '—' ? '—' : item.normalized, 'cell-normalized'));
+
+    const tdS = document.createElement('td');
+    const badge = document.createElement('span');
+    badge.className = item.status === 'ok' ? 'badge badge-ok' : item.status === 'empty' ? 'badge badge-err' : 'badge badge-skip';
+    badge.textContent = item.status === 'ok' ? 'OK' : item.status === 'empty' ? 'VAZIO' : 'IGNORADO';
+    tdS.appendChild(badge);
+    row.appendChild(tdS);
+    tableBody.appendChild(row);
+  });
+
+  pageInfo.textContent = `Página ${currentPage} de ${totalPages}`;
+  btnPrev.disabled = currentPage <= 1;
+  btnNext.disabled = currentPage >= totalPages;
+}
+
+// ─── Download CSV ─────────────────────────────────────────────────────────────
+btnDownload.addEventListener('click', () => {
+  const rows = [
+    [...rawHeaders, 'Phone_Normalized'],
+    ...processedRows.map(r => [...r.rowData, r.normalized === '—' ? '' : r.normalized])
+  ];
+  const csv = rows.map(r =>
+    r.map(c => {
+      const s = String(c == null ? '' : c);
+      return /[,"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    }).join(',')
+  ).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'phones_normalized.csv'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV exportado!', 'success');
+});
+
+// ─── Copy normalized list ─────────────────────────────────────────────────────
+btnCopyList.addEventListener('click', () => {
+  const ok = processedRows.filter(r => r.status === 'ok');
+  if (!ok.length) { showToast('Nenhum número normalizado.', 'info'); return; }
+  navigator.clipboard.writeText(ok.map(r => r.normalized).join('\n'))
+    .then(() => showToast(`${ok.length} números copiados!`, 'success'))
+    .catch(() => showToast('Falha ao copiar — use o CSV.', 'error'));
+});
+
+// ─── Reset ────────────────────────────────────────────────────────────────────
+btnReset.addEventListener('click', () => {
+  rawHeaders = []; rawRows = []; commaInput.value = ''; tableInput.value = ''; fileInput.value = '';
+  colSelect.innerHTML = '<option value="">— carregue um arquivo —</option>';
+  tableColSel.innerHTML = '<option value="">— cole a tabela acima —</option>';
+  searchInput.value = '';
+  resetResults();
+  setStatus('', 'aguardando entrada...');
+  showToast('Dados limpos.', 'info');
+});
+
+function resetResults() {
+  processedRows = []; filteredRows = [];
+  statsBar.classList.remove('visible');
+  tableWrap.classList.remove('visible');
+  tableHead.innerHTML = ''; tableBody.innerHTML = '';
+  btnDownload.disabled = true; btnCopyList.disabled = true;
+}
+
+// ─── Pagination + search ──────────────────────────────────────────────────────
+searchInput.addEventListener('input', () => { currentPage = 1; renderTable(); });
+btnPrev.addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderTable(); } });
+btnNext.addEventListener('click', () => {
+  const total = Math.ceil(filteredRows.length / PAGE_SIZE);
+  if (currentPage < total) { currentPage++; renderTable(); }
+});
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function setStatus(state, text) {
+  statusDot.className = 'status-dot' + (state ? ' ' + state : '');
+  statusText.textContent = text;
+}
+
+let toastTimer;
+function showToast(msg, type = 'info') {
+  toast.textContent = msg;
+  toast.className = `toast ${type} show`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 3200);
+}
+</script>
+</body>
+</html>
